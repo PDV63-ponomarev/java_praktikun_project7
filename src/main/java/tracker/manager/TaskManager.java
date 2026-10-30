@@ -13,7 +13,8 @@ public interface TaskManager {
     Task getTask(int id);
     TaskEpic getEpic(int id);
     TaskSubtask getSubtask(int id);
-
+    List<TaskSubtask> getEpicSubtasks(int epicId);
+    
     // создание — id назначает сам менеджер
     int addNewTask(Task task);
     int addNewEpic(TaskEpic epic);
