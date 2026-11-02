@@ -13,8 +13,9 @@ import java.util.List;
 public class FileBackedTasksManager extends InMemoryTaskManager {
     private final File file;
 
-    public FileBackedTasksManager(File file) {
-        this.file = file;
+    public FileBackedTasksManager(InMemoryHistoryManager historyManager, String path) {
+        super(historyManager);
+        this.file = new File(path);
     }
 
     @Override
@@ -74,6 +75,7 @@ public class FileBackedTasksManager extends InMemoryTaskManager {
 
     public static FileBackedTasksManager loadFromFile(File file) {
         FileBackedTasksManager manager = new FileBackedTasksManager(file);
+
         if (!file.exists() || file.length() == 0) {
             return manager;                      // пустой файл — пустой менеджер
         }

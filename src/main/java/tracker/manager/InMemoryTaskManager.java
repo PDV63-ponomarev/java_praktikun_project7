@@ -10,7 +10,7 @@ public class InMemoryTaskManager implements TaskManager {
     protected final HashMap<Integer, TaskEpic> epics = new HashMap<>();
     protected final HashMap<Integer, TaskSubtask> subtasks = new HashMap<>();
     protected int nextId = 1;
-    protected final HistoryManager historyManager = Managers.getDefaultHistoryManager();
+    protected final HistoryManager historyManager;
 //    private final Set<Task> prioritizedTasks = new TreeSet<>(Comparator.comparing(Task::getStartTime));
 
     private final Set<Task> prioritizedTasks = new TreeSet<>(
@@ -18,6 +18,10 @@ public class InMemoryTaskManager implements TaskManager {
                             Comparator.nullsLast(Comparator.naturalOrder()))
                     .thenComparingInt(Task::getTaskID)
     );
+
+    public InMemoryTaskManager(HistoryManager historyManager) {
+        this.historyManager = historyManager;
+    }
 
     protected void addToPrioritized(Task t) { prioritizedTasks.add(t); }
 

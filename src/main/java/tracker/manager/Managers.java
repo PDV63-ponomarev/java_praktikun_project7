@@ -1,4 +1,5 @@
 package tracker.manager;
+import tracker.server.KVTaskClient;
 
 public class Managers {
 
@@ -13,5 +14,9 @@ public class Managers {
 
     public static HistoryManager getDefaultHistoryManager() {
         return new InMemoryHistoryManager();
+    }
+
+    public static TaskManager getDefault(String url) {
+        return new HttpTaskManager(getDefaultHistory(), url, new KVTaskClient(url));
     }
 }
