@@ -22,6 +22,15 @@ public class FileBackedTasksManager extends InMemoryTaskManager {
         this.file = new File(path);
     }
 
+    public FileBackedTasksManager(HistoryManager historyManager, File file) {
+        super(historyManager);
+        this.file = file;
+    }
+
+    public FileBackedTasksManager(File file) {
+        this(Managers.getDefaultHistoryManager(), file);
+    }
+
     @Override
     public int addNewTask(Task task) {
         int id = super.addNewTask(task);
