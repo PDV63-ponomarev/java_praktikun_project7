@@ -28,30 +28,25 @@ public class KVServer {
         try {
             System.out.println("\n/load");
             if (!hasAuth(httpExchange)) {
-                System.out.println("Неавторизованный запрос." +
-                        "\nНеобходим параметр API_TOKEN, содержащий значение API-ключа.");
-                httpExchange.sendResponseHeaders(403, 0);
+                httpExchange.sendResponseHeaders(403, -1);   // -1 = без тела
                 return;
             }
-            if ("GET".equals(httpExchange.getRequestMethod())) {
-                String key = httpExchange.getRequestURI().getPath().substring("/load/".length());
-                if (key.isEmpty()) {
-                    System.out.println("Ключ пуст, получить значение невозможно. " +
-                            "\nКлюч должен быть указан: /load/{key}");
-                    httpExchange.sendResponseHeaders(400, 0);
-                    return;
-                }
-                if (data.get(key) == null) {
-                    System.out.println("Неотслеживаемое значение для " + key);
-                    httpExchange.sendResponseHeaders(404, 0);
-                    return;
-                }
-                sendText(httpExchange, data.get(key));
-                httpExchange.sendResponseHeaders(200, 0);
-            } else {
-                System.out.println("/load ожидает GET-отве, но получил: " + httpExchange.getRequestMethod());
-                httpExchange.sendResponseHeaders(405, 0);
+            if (!"GET".equals(httpExchange.getRequestMethod())) {
+                httpExchange.sendResponseHeaders(405, -1);
+                return;
             }
+            String path = httpExchange.getRequestURI().getPath();
+            if (path.length() <= "/load/".length()) {        // защита от /load без ключа
+                httpExchange.sendResponseHeaders(400, -1);
+                return;
+            }
+            String key = path.substring("/load/".length());
+            String value = data.get(key);
+            if (value == null) {
+                httpExchange.sendResponseHeaders(404, -1);
+                return;
+            }
+            sendText(httpExchange, value);   // внутри уже есть sendResponseHeaders(200, ...) — больше НИЧЕГО не отправляем
         } finally {
             httpExchange.close();
         }
@@ -82,7 +77,7 @@ public class KVServer {
                 }
                 data.put(key, value);
                 System.out.println("Значение для ключа  " + key + " было успешно обновлено");
-                httpExchange.sendResponseHeaders(200, 0);
+                httpExchange.sendResponseHeaders(200, -1);
             } else {
                 System.out.println("/save ожидал POST-ответ, но получил: " + httpExchange.getRequestMethod());
                 httpExchange.sendResponseHeaders(405, 0);

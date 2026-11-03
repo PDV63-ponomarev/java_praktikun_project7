@@ -1,10 +1,13 @@
 package tracker;
 
 import tracker.manager.FileBackedTasksManager;
+import tracker.manager.Managers;
 import tracker.manager.TaskManager;
 import tracker.model.*;
+import tracker.server.KVServer;
 
 import java.io.File;
+import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -15,7 +18,11 @@ public class Main {
     private static final Scanner scanner = new Scanner(System.in);
     private static TaskManager manager;
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
+        KVServer kvServer = new KVServer();
+        kvServer.start();
+
+        manager = Managers.getDefault("http://localhost:" + KVServer.PORT);
         manager = FileBackedTasksManager.loadFromFile(new File("tasks.csv"));
 
         while (true) {

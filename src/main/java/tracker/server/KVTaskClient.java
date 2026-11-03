@@ -1,5 +1,7 @@
 package tracker.server;
 
+import tracker.manager.ManagerSaveException;
+
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -9,59 +11,56 @@ import java.net.http.HttpResponse;
 public class KVTaskClient {
     private final String serverUrl;
     private final String apiToken;
-    private HttpResponse<String> response;
+    private final HttpClient client = HttpClient.newHttpClient();
 
     public KVTaskClient(String serverUrl) {
         this.serverUrl = serverUrl;
-        URI url = URI.create(serverUrl + "/register");
         HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(serverUrl + "/register"))
                 .GET()
-                .uri(url)
-                .header("Accept", "application/json")
                 .build();
-        HttpClient client = HttpClient.newHttpClient();
         try {
-            response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() != 200) {
+                throw new ManagerSaveException("Регистрация не удалась, код " + response.statusCode());
+            }
+            this.apiToken = response.body();
         } catch (IOException | InterruptedException e) {
-            System.out.println("Возникла проблема. Проверьте адрес");
+            throw new ManagerSaveException("KVServer недоступен: " + serverUrl
+                    + " (запусти его первым!)", e);
         }
-        apiToken = response.body();
     }
 
-    public void put(String key, String requestBody) {
-        URI uri = URI.create(serverUrl + "/save/" + key + "?API_TOKEN=" + apiToken);
+    public void put(String key, String json) {
         HttpRequest request = HttpRequest.newBuilder()
-                .POST(HttpRequest.BodyPublishers.ofString(requestBody))
-                .uri(uri)
-                .header("Accept", "application/json")
+                .uri(URI.create(serverUrl + "/save/" + key + "?API_TOKEN=" + apiToken))
+                .POST(HttpRequest.BodyPublishers.ofString(json))
                 .build();
-        HttpClient client = HttpClient.newHttpClient();
         try {
-            response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() != 200) {
-                System.out.println("Произошла ошибка. Код: " + response.statusCode());
+                throw new ManagerSaveException("Не сохранился ключ " + key + ", код " + response.statusCode());
             }
         } catch (IOException | InterruptedException e) {
-            System.out.println("Возникла проблема. Проверьте адрес");
+            throw new ManagerSaveException("Сетевая ошибка при сохранении " + key, e);
         }
     }
 
+    /** null, если ключа на сервере нет (404) — нормальная ситуация при первом запуске */
     public String load(String key) {
-        URI uri = URI.create(serverUrl + "/load/" + key + "?API_TOKEN=" + apiToken);
         HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(serverUrl + "/load/" + key + "?API_TOKEN=" + apiToken))
                 .GET()
-                .uri(uri)
-                .header("Accept", "application/json")
                 .build();
-        HttpClient client = HttpClient.newHttpClient();
         try {
-            response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() == 404) return null;
             if (response.statusCode() != 200) {
-                return "Произошла ошибка. Код: " + response.statusCode();
+                throw new ManagerSaveException("Не загрузился ключ " + key + ", код " + response.statusCode());
             }
             return response.body();
         } catch (IOException | InterruptedException e) {
-            return "Возникла проблема. Проверьте адрес";
+            throw new ManagerSaveException("Сетевая ошибка при загрузке " + key, e);
         }
     }
 }

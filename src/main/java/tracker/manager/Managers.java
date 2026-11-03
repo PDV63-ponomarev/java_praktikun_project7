@@ -16,7 +16,7 @@ public class Managers {
         return new InMemoryHistoryManager();
     }
 
-    public static TaskManager getDefault(String url) {
-        return new HttpTaskManager(getDefaultHistory(), url, new KVTaskClient(url));
+    public static TaskManager getDefault(String url) {   // KVServer-backed
+        return new HttpTaskManager(new InMemoryHistoryManager(), url);
     }
 }

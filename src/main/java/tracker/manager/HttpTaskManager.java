@@ -9,14 +9,14 @@ import tracker.model.Task;
 
 import java.util.List;
 import java.util.stream.Collectors;
-
 public class HttpTaskManager extends FileBackedTasksManager {
-    private final KVTaskClient taskClient;
     private static final Gson gson = new Gson();
+    private final KVTaskClient taskClient;
 
-    public HttpTaskManager(HistoryManager historyManager, String url, KVTaskClient taskClient) {
-        super(historyManager, url);
-        this.taskClient = taskClient;
+    public HttpTaskManager(HistoryManager historyManager, String url) {
+        super(historyManager);              // защищённый конструктор без файла
+        this.taskClient = new KVTaskClient(url);
+        loadFromServer();                   // состояние поднимается сразу при создании
     }
 
     @Override
@@ -24,15 +24,13 @@ public class HttpTaskManager extends FileBackedTasksManager {
         taskClient.put("task", gson.toJson(tasks.values()));
         taskClient.put("subtask", gson.toJson(subtasks.values()));
         taskClient.put("epic", gson.toJson(epics.values()));
-        taskClient.put("tasks", gson.toJson(getPrioritizedTasks()));
-        List<Integer> historyIds = getHistory()
-                .stream()
+        List<Integer> historyIds = getHistory().stream()
                 .map(Task::getTaskID)
                 .collect(Collectors.toList());
         taskClient.put("history", gson.toJson(historyIds));
     }
 
-    public void loadFromServer() {
+    private void loadFromServer() {
         loadTasks("task");
         loadTasks("subtask");
         loadTasks("epic");
@@ -40,47 +38,41 @@ public class HttpTaskManager extends FileBackedTasksManager {
     }
 
     private void loadTasks(String key) {
-        JsonElement jsonElement = JsonParser.parseString(taskClient.load(key));
-        JsonArray jsonTasksArray = jsonElement.getAsJsonArray();
-        for (JsonElement element : jsonTasksArray) {
-            Task task;
-            TaskEpic epic;
-            TaskSubtask subtask;
+        String json = taskClient.load(key);
+        if (json == null || json.isBlank()) return;    // первый запуск — на сервере пусто
+        for (JsonElement element : JsonParser.parseString(json).getAsJsonArray()) {
             switch (key) {
-                case "task":
-                    task = gson.fromJson(element.getAsJsonObject(), Task.class);
+                case "task" -> {
+                    Task task = gson.fromJson(element, Task.class);
                     tasks.put(task.getTaskID(), task);
                     addToPrioritized(task);
-                    break;
-                case "subtask":
-                    subtask = gson.fromJson(element.getAsJsonObject(), TaskSubtask.class);
-                    subtasks.put(subtask.getTaskID(), subtask);
-                    addToPrioritized(subtask);
-                    break;
-                case "epic":
-                    epic = gson.fromJson(element.getAsJsonObject(), TaskEpic.class);
+                    nextId = Math.max(nextId, task.getTaskID() + 1);   // ← вот это спасает от коллизий
+                }
+                case "subtask" -> {
+                    TaskSubtask sub = gson.fromJson(element, TaskSubtask.class);
+                    subtasks.put(sub.getTaskID(), sub);
+                    addToPrioritized(sub);
+                    nextId = Math.max(nextId, sub.getTaskID() + 1);
+                }
+                case "epic" -> {
+                    TaskEpic epic = gson.fromJson(element, TaskEpic.class);
                     epics.put(epic.getTaskID(), epic);
                     addToPrioritized(epic);
-                    break;
-                default:
-                    System.out.println("Unable to upload tasks");
-                    return;
+                    nextId = Math.max(nextId, epic.getTaskID() + 1);
+                }
             }
         }
     }
 
     private void loadHistory() {
-        JsonElement jsonElement = JsonParser.parseString(taskClient.load("history"));
-        JsonArray jsonHistoryArray = jsonElement.getAsJsonArray();
-        for (JsonElement element : jsonHistoryArray) {
+        String json = taskClient.load("history");
+        if (json == null || json.isBlank()) return;
+        for (JsonElement element : JsonParser.parseString(json).getAsJsonArray()) {
             int id = element.getAsInt();
-            if (tasks.containsKey(id)) {
-                historyManager.add(tasks.get(id));
-            } else if (epics.containsKey(id)) {
-                historyManager.add(epics.get(id));
-            } else if (subtasks.containsKey(id)) {
-                historyManager.add(subtasks.get(id));
-            }
+            Task t = tasks.containsKey(id) ? tasks.get(id)
+                    : epics.containsKey(id) ? epics.get(id)
+                    : subtasks.get(id);
+            if (t != null) historyManager.add(t);
         }
     }
 }

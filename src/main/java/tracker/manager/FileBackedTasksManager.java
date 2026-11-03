@@ -11,9 +11,13 @@ import java.nio.file.Files;
 import java.util.List;
 
 public class FileBackedTasksManager extends InMemoryTaskManager {
-    private final File file;
+    private File file;
 
-    public FileBackedTasksManager(InMemoryHistoryManager historyManager, String path) {
+    protected FileBackedTasksManager(HistoryManager historyManager) {
+        super(historyManager);
+    }
+
+    public FileBackedTasksManager(HistoryManager historyManager, String path) {
         super(historyManager);
         this.file = new File(path);
     }
@@ -74,7 +78,8 @@ public class FileBackedTasksManager extends InMemoryTaskManager {
     }
 
     public static FileBackedTasksManager loadFromFile(File file) {
-        FileBackedTasksManager manager = new FileBackedTasksManager(file);
+        FileBackedTasksManager manager = new FileBackedTasksManager(new InMemoryHistoryManager(),
+                file.getPath());
 
         if (!file.exists() || file.length() == 0) {
             return manager;                      // пустой файл — пустой менеджер
